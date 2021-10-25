@@ -6,11 +6,47 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "proc.h"
-
+#include "spinlock.h"
 int
 sys_fork(void)
 {
   return fork();
+}
+
+int
+strlen(const char *s);
+
+void
+sys_crsp(int *buf)
+{
+ extern struct {
+ struct spinlock lock;
+ struct proc proc[NPROC];
+ } ptable;
+ //There needs to be room for a 16-character name, since that is the longest name allowed in a proc struct.
+ cprintf("name              pid               state\n-------------------------------------------\n");
+ acquire(&ptable.lock);
+ for(struct proc *p = &ptable.proc[0];p < &ptable.proc[NPROC];p++){
+	if(p->state == RUNNING || p->state == SLEEPING){
+ 		cprintf("%s",p->name);
+		//Keep the second column alligned with the pid label
+		for(int i = 0;i < 19-strlen(p->name); i++){
+			cprintf(" ");
+		}
+		cprintf("%d",p->pid);
+		//Keep the third column aligned with the state label
+		for(int i = 0;i < 15-p->pid/10;i++){
+			cprintf(" ");
+		}
+	}
+	if(p->state == RUNNING){
+		cprintf("%s\n","RUNNING");
+	}
+	else if(p->state == SLEEPING){
+		cprintf("%s\n","SLEEPING");
+	}
+ }
+ release(&ptable.lock);
 }
 
 int
