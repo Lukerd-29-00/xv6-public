@@ -16,8 +16,11 @@ sys_fork(void)
 int
 strlen(const char *s);
 
+/**Loops through the process table defined in proc.c and prints the name, pid, and status of all running and sleeping processes.
+ * side effect: prints the effects of all running and sleeping processes.
+ */
 void
-sys_crsp(int *buf)
+sys_crsp(void)
 {
  extern struct {
  struct spinlock lock;
