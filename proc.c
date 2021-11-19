@@ -1,3 +1,8 @@
+#define ZEROITER 500;
+#define ONEITER 24;
+#define TWOITER 16;
+#define THREEITER 8;
+
 #include "types.h"
 #include "defs.h"
 #include "param.h"
@@ -89,7 +94,7 @@ found:
   p->state = EMBRYO;
   p->pid = nextpid++;
   p->queue = 3;
-  p->noiterations = 0;
+  p->noiterations = 8;
   p->idle = 0;
 
   release(&ptable.lock);
@@ -383,12 +388,15 @@ scheduler(void)
       }
     }
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE || p->state < mx)
+      if(p->state != RUNNABLE || p->state < mx || p->noiterations == 0)
         continue;
-
+      
+      cprintf("[%s:%d] in queue %d for %dms, idle for %ds\n",p->name,p->pid,p->queue,p->noiterations*10,p->idle*10);
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
+      p->noiterations--;
+      p->idle = 0;
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
