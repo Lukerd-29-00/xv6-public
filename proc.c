@@ -88,6 +88,9 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->queue = 3;
+  p->noiterations = 0;
+  p->idle = 0;
 
   release(&ptable.lock);
 
@@ -332,8 +335,55 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
+    short mx = 0;
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
+      if(p->state==RUNNABLE){
+	      if(p->noiterations == 0){
+          if(p->queue > 0){
+		        p->queue--;
+	        }
+          switch(p->queue){
+          case 0:
+            p->noiterations = ZEROITER;
+            break;
+				  case 1:
+					  p->noiterations = ONEITER;
+					  break;
+				  case 2:
+					  p->noiterations = TWOITER;
+					  break;
+					case 3:
+						p->noiterations = THREEITER;
+						break;
+          }
+          p->idle = 0;
+          cprintf("Bumped down [%s:%d]\n", p->name, p->pid);
+        }else if(p->idle > p->noiterations && p->queue < 3){
+			    switch(++p->queue){
+				  case 1:
+					  p->noiterations = ONEITER;
+					  break;
+				  case 2:
+					  p->noiterations = TWOITER;
+					  break;
+				  case 3:
+					  p->noiterations = THREEITER;
+					  break;
+			    }
+          p->idle = 0;
+		    }
+        if(p->queue > mx){
+          mx = p->queue;
+        }
+      }
+    }
+    for(struct proc *q = ptable.proc; q < &ptable.proc[NPROC]; q++){
+      if(q->queue < mx){
+        q->idle++;
+      }
+    }
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->state != RUNNABLE || p->state < mx)
         continue;
 
       // Switch to chosen process.  It is the process's job

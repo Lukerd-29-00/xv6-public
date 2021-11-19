@@ -48,6 +48,9 @@ struct proc {
   int killed;                  // If non-zero, have been killed
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
+  short queue;
+  short noiterations;
+  short idle;
   char name[16];               // Process name (debugging)
 };
 
