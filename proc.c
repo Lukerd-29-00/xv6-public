@@ -334,6 +334,7 @@ scheduler(void)
   struct cpu *c = mycpu();
   c->proc = 0;
   
+  int iters[] = {500, 24, 16, 8};
   for(;;){
     // Enable interrupts on this processor.
     sti();
@@ -342,59 +343,39 @@ scheduler(void)
     acquire(&ptable.lock);
     short mx = 0;
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state==RUNNABLE){
-	      if(p->noiterations == 0){
+      if(p && p->state != UNUSED && p->noiterations <= 0 ){
           if(p->queue > 0){
 		        p->queue--;
 	        }
-          switch(p->queue){
-          case 0:
-            p->noiterations = ZEROITER;
-            break;
-				  case 1:
-					  p->noiterations = ONEITER;
-					  break;
-				  case 2:
-					  p->noiterations = TWOITER;
-					  break;
-					case 3:
-						p->noiterations = THREEITER;
-						break;
-          }
+          p->noiterations = iters[p->queue];
           p->idle = 0;
           cprintf("Bumped down [%s:%d]\n", p->name, p->pid);
-        }else if(p->idle > p->noiterations && p->queue < 3){
-			    switch(++p->queue){
-				  case 1:
-					  p->noiterations = ONEITER;
-					  break;
-				  case 2:
-					  p->noiterations = TWOITER;
-					  break;
-				  case 3:
-					  p->noiterations = THREEITER;
-					  break;
-			    }
+      }else if(p->state == RUNNABLE){
+        if(p->idle > iters[p->queue] && p->queue < 3){
+			    p->noiterations = iters[++p->queue];
           p->idle = 0;
-		    }
-        if(p->queue > mx){
-          mx = p->queue;
         }
+        if(p->queue > mx && p->state == RUNNABLE){
+          mx = p->queue;
+        }		  
       }
     }
     for(struct proc *q = ptable.proc; q < &ptable.proc[NPROC]; q++){
-      if(q->queue < mx){
-        q->idle++;
-      }
+	    if(q->state == RUNNABLE){
+        	q->idle++;
+	    }
     }
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE || p->state < mx || p->noiterations == 0)
+      if(p->state != RUNNABLE || p->queue < mx)
         continue;
       
-      cprintf("[%s:%d] in queue %d for %dms, idle for %ds\n",p->name,p->pid,p->queue,p->noiterations*10,p->idle*10);
+      cprintf("[%s:%d] in queue %d for %dms, idle for %dms\n",p->name,p->pid,p->queue,p->noiterations*10,p->idle*10);
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
+      if(p->noiterations == 0){
+        panic("out of iterations");
+      }
       p->noiterations--;
       p->idle = 0;
       c->proc = p;
